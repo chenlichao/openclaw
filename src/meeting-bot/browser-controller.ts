@@ -247,7 +247,7 @@ export async function openMeetingWithBrowser<
         ? params.adapter.browser.classifyManualAction(browser)
         : undefined;
       browser = applyMeetingManualAction(browser, manual);
-      if (browser?.inCall === true && (!allowMicrophone || browser.micMuted !== true)) {
+      if (browser?.inCall === true && (!allowMicrophone || browser.micMuted === false)) {
         return { launched: true, browser, tab: tabIdentity };
       }
       if (browser?.manualActionRequired === true) {
@@ -294,7 +294,11 @@ function findRecoverableTab<
     params.adapter.urls.isRecoverableTab(tab, params.requestedMeetingUrl),
   );
   if (!params.requestedMeetingUrl) {
-    return candidates[0];
+    // No requested identity means every meeting candidate is necessarily untargeted.
+    // Keep login pages as fallbacks, behind tabs with a normalized meeting identity.
+    return (
+      candidates.find((tab) => params.adapter.urls.normalizeForReuse(tab.url)) ?? candidates[0]
+    );
   }
   const accountHint = params.adapter.urls.accountHint(params.requestedMeetingUrl);
   const accountCandidates = accountHint

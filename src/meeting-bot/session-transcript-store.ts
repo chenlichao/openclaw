@@ -145,15 +145,26 @@ export class MeetingSessionTranscriptStore<TSession extends MeetingSessionRecord
       });
       return;
     }
-    if (retained.pageEpoch !== snapshot.epoch) {
-      retained.droppedLines += snapshot.droppedLines;
-      retained.lines.push(...snapshot.lines);
+    const pageChanged = retained.pageEpoch !== snapshot.epoch;
+    if (pageChanged || pageNextIndex > retained.pageNextIndex) {
+      const retainedNextIndex = retained.droppedLines + retained.lines.length;
+      const pageOffset = pageChanged
+        ? retainedNextIndex
+        : retainedNextIndex - retained.pageNextIndex;
+      const appendFrom = pageChanged
+        ? snapshot.droppedLines
+        : Math.max(retained.pageNextIndex, snapshot.droppedLines);
+      const appendStartIndex = pageOffset + appendFrom;
+      const appendedLines = snapshot.lines.slice(appendFrom - snapshot.droppedLines);
+      if (appendStartIndex > retainedNextIndex) {
+        // The public cursor represents one contiguous segment. Keeping lines across a
+        // page gap would silently shift their indices, so retain only the newest tail.
+        retained.droppedLines = appendStartIndex;
+        retained.lines = appendedLines;
+      } else {
+        retained.lines.push(...appendedLines);
+      }
       retained.pageEpoch = snapshot.epoch;
-      retained.pageNextIndex = pageNextIndex;
-    } else if (pageNextIndex > retained.pageNextIndex) {
-      const appendFrom = Math.max(retained.pageNextIndex, snapshot.droppedLines);
-      retained.droppedLines += Math.max(0, snapshot.droppedLines - retained.pageNextIndex);
-      retained.lines.push(...snapshot.lines.slice(appendFrom - snapshot.droppedLines));
       retained.pageNextIndex = pageNextIndex;
     }
     const excess = retained.lines.length - TRANSCRIPT_MAX_LINES;

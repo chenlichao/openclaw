@@ -720,11 +720,14 @@ export class MeetingSessionRuntime<
       };
     }
     if (health?.inCall === true) {
-      if (health.micMuted === true) {
+      if (health.micMuted !== false) {
+        // Talkback requires an explicit unmuted observation. Missing DOM state is
+        // transiently blocked so an unknown microphone never authorizes speech.
+        const muted = health.micMuted === true;
         return {
           ready: false,
-          reason: speech.microphoneMutedReason,
-          message: speech.microphoneMuted,
+          reason: muted ? speech.microphoneMutedReason : speech.browserUnverifiedReason,
+          message: muted ? speech.microphoneMuted : speech.browserUnverified,
         };
       }
       return browser.hasAudioBridge
